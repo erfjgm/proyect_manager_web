@@ -1,0 +1,24 @@
+{% extends 'lib/base.html' %}
+
+{% block content %}
+<br><br>
+<main class="form-signin w-100 m-auto">
+  <div class="card mx-auto" style="width: 20rem;">
+    <div class="custon_main card-body">
+      <h5 class="card-title">Iniciar Sesión</h5>
+      <form action="" method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label for="exampleInputEmail1" class="form-label float-md-start">Nombre de Usuario</label>
+          <input type="text" class="form-control" name="username" id="exampleInputEmail1">
+        </div>
+        <div class="mb-3">
+          <label for="exampleInputPassword1" class="form-label float-md-start">Contraseña</label>
+          <input type="password" class="form-control" name="password" id="exampleInputPassword1">
+        </div>
+        <button class="custon_btn w-100 btn " type="submit">Iniciar Sesión</button>
+      </form>
+    </div>
+  </div>
+</main>
+{% endblock %}
