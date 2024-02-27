@@ -3,6 +3,8 @@ import json
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth import logout
 from django.core.exceptions import ObjectDoesNotExist
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 from .models import Board, List, Card, UserProfile
 
 
@@ -38,12 +40,61 @@ def list_boards(request):
     if request.method == 'GET':
         try:
             user_profile = UserProfile.objects.get(user=request.user)
-            company_boards = list(Board.objects.filter(company=user_profile.company).values('id','name'))
+            company_boards = list(Board.objects.filter(company=user_profile.company,is_deleted=False).values('id','name'))
             return JsonResponse({'boards': company_boards})
         except ObjectDoesNotExist:
             return JsonResponse({'error': 'UserProfile not found for the current user'}, status=404)
         except Exception as e:
             return JsonResponse({'error': f'An error occurred: {str(e)}'}, status=500)
+
+@login_required
+def add_board(request):
+    try:
+        if request.method == 'POST':
+            request_data = json.loads(request.body.decode('utf-8'))
+            new_board_name = request_data.get('new_board')
+            if not new_board_name:
+                return JsonResponse({'error': 'Nombre de board requerido'}, status=400)
+            user_profile = UserProfile.objects.get(user=request.user)
+            if Board.objects.filter(name__iexact=new_board_name, company=user_profile.company).exists():
+                return JsonResponse({'error': f'Ya existe un board con el nombre "{new_board_name}" en esta compañía'}, status=400)
+            new_board = Board.objects.create(name=new_board_name, company=user_profile.company)
+            return JsonResponse({'success': f'Board "{new_board_name}" creado con éxito'}, status=200)
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Perfil de usuario no encontrado'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'Error en la creación del board: {str(e)}'}, status=500)
+
+@login_required
+def edit_board(request):
+    if request.method == 'POST':
+            request_data = json.loads(request.body.decode('utf-8'))
+            new_board_name = request_data.get('new_board')
+            old_board_name = request_data.get('old_board')
+            user_profile = UserProfile.objects.get(user=request.user)
+            if Board.objects.filter(name__iexact=new_board_name, company=user_profile.company).exists():
+                return JsonResponse({'error': f'Ya existe un board con el nombre "{new_board_name}" en esta compañía'}, status=400)
+            edit_board= Board.objects.get(name__iexact=old_board_name, company=user_profile.company)
+            edit_board.name=new_board_name
+            edit_board.save()
+            return JsonResponse({'success': 'Board creado con éxito'}, status=200)
+
+@login_required
+def delete_board(request):
+    if request.method == 'POST':
+        request_data = json.loads(request.body.decode('utf-8'))
+        delete_board_name = request_data.get('delete_board')
+        if not delete_board_name:
+                return JsonResponse({'error': 'Nombre de board requerido'}, status=400)
+        user_profile = UserProfile.objects.get(user=request.user)
+        delete_board=Board.objects.get(name__iexact=delete_board_name, company=user_profile.company)
+        count_delete=Board.objects.filter(name__icontains=delete_board.name+"_delete").values('name').count()
+        delete_board.name=delete_board.name+"_delete"+str(count_delete+1)
+        delete_board.is_deleted=True
+        delete_board.deleted_by= request.user
+        delete_board.deletion_date=timezone.now()
+        delete_board.save()
+        return JsonResponse({'success': True})
 
 def list_lists(request):       
     if request.method == 'POST':
